@@ -1,36 +1,36 @@
 package main
 
-type Reader interface {
-	read() bool
-	scan() []string
+import (
+	"fmt"
+)
+
+type schemeError struct {
+	allowed_scheme string
+	provided_uri   string
 }
 
-type Writer interface {
-	write() bool
+func (e *schemeError) Error() string {
+	return fmt.Sprintf("Bad scheme. Provided uri %s, allowed %s", e.provided_uri, e.allowed_scheme)
 }
 
-type FSReader struct {
-	fs fileSystem
+type reader interface {
+	read(uri string) []byte
+	scan(uri string) ([]string, error)
+	check_scheme(uri string) error
 }
 
-func (FSReader) scan(uri string) {
-
+type writer interface {
+	write(bytes []byte, uri string) bool
+	check_scheme(uri string) error
 }
 
-type Uploader interface {
-	upload(input string, output string) bool
+type uploader struct {
+	reader
+	writer
 }
 
-type MockUploader struct {
-	uploader Uploader
-	reader   Reader
-	writer   Writer
-}
-
-func (MockUploader) upload(input string, output string) bool {
-	return false
-}
-
-func NewMockUploader() *MockUploader {
-	return &MockUploader{}
+func (u uploader) upload(input string, output string) bool {
+	bytes := u.read(input)
+	u.write(bytes, output)
+	return true
 }
