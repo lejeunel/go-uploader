@@ -6,18 +6,19 @@ import (
 )
 
 type mockReader struct {
-	writer writer
+	reader   reader
+	dataPath string
 }
 
 type mockWriter struct {
-	reader reader
+	writer writer
 }
 
 func (r *mockReader) read(uri string) []byte {
 	return []byte{4, 2}
 }
 
-func (r *mockReader) check_scheme(uri string) error {
+func (r *mockReader) checkScheme(uri string) error {
 	if strings.HasPrefix(uri, "file:///") {
 		return nil
 	} else {
@@ -26,7 +27,16 @@ func (r *mockReader) check_scheme(uri string) error {
 	}
 }
 
-func (r *mockWriter) check_scheme(uri string) error {
+func (r *mockReader) checkExists(uri string) error {
+	if uri == r.dataPath {
+		return nil
+	} else {
+		return &sourceError{provided_uri: uri}
+
+	}
+}
+
+func (r *mockWriter) checkScheme(uri string) error {
 	if strings.HasPrefix(uri, "scheme://") {
 		return nil
 	} else {
@@ -35,22 +45,13 @@ func (r *mockWriter) check_scheme(uri string) error {
 	}
 }
 
-func (r *mockReader) scan(uri string) ([]string, error) {
-	check_scheme_error := r.check_scheme(uri)
-	if check_scheme_error != nil {
-		return make([]string, 0), check_scheme_error
-	}
+func (r *mockReader) scan(uri string) []string {
 
-	root := "file:///path/to/dir/"
 	files := make([]string, 2)
 	for i := 0; i < 2; i++ {
-		files[i] = root + fmt.Sprintf("file_%03d.ext", i)
+		files[i] = r.dataPath + fmt.Sprintf("file_%03d.ext", i)
 	}
-	if uri == root {
-		return files, nil
-	} else {
-		return make([]string, 0), nil
-	}
+	return files
 
 }
 
@@ -59,6 +60,6 @@ func (w *mockWriter) write(bytes []byte, uri string) bool {
 }
 
 func NewMockUploader() *uploader {
-	return &uploader{reader: &mockReader{},
+	return &uploader{reader: &mockReader{dataPath: "file:///path/to/data/"},
 		writer: &mockWriter{}}
 }

@@ -13,15 +13,24 @@ func (e *schemeError) Error() string {
 	return fmt.Sprintf("Bad scheme. Provided uri %s, allowed %s", e.provided_uri, e.allowed_scheme)
 }
 
+type sourceError struct {
+	provided_uri string
+}
+
+func (e *sourceError) Error() string {
+	return fmt.Sprintf("Source URI %s not found/valid.", e.provided_uri)
+}
+
 type reader interface {
 	read(uri string) []byte
-	scan(uri string) ([]string, error)
-	check_scheme(uri string) error
+	scan(uri string) []string
+	checkScheme(uri string) error
+	checkExists(uri string) error
 }
 
 type writer interface {
 	write(bytes []byte, uri string) bool
-	check_scheme(uri string) error
+	checkScheme(uri string) error
 }
 
 type uploader struct {

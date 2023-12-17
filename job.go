@@ -1,12 +1,20 @@
 package main
 
+import (
+	"time"
+)
+
 const (
-	initialized = iota
-	parsed      = iota
-	done        = iota
+	created = iota
+	parsed  = iota
+	done    = iota
 )
 
 type job struct {
-	last_status  int
-	transactions []transaction
+	uriSource      string
+	uriDestination string
+	createdAt      time.Time
+	updatedAt      time.Time
+	lastStatus     int
+	transactions   []transaction
 }

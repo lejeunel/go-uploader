@@ -1,5 +1,9 @@
 package main
 
+import (
+	"time"
+)
+
 type jobInitError struct {
 }
 
@@ -11,19 +15,25 @@ type jobManager struct {
 	uploader
 }
 
-func (m *jobManager) create(uri_source string, uri_destination string) (*job, error) {
-	_, e := m.uploader.scan(uri_source)
+func (m *jobManager) create(uriSource string, uriDestination string) (*job, error) {
+	eSource := m.uploader.reader.checkScheme(uriSource)
 
-	if e != nil {
-		return &job{}, e
+	if eSource != nil {
+		return nil, eSource
 	}
 
-	e = m.uploader.writer.check_scheme(uri_destination)
-	if e != nil {
-		return &job{}, e
+	eDestination := m.uploader.writer.checkScheme(uriDestination)
+	if eDestination != nil {
+		return nil, eDestination
 	}
 
-	return &job{}, nil
+	eSourceExists := m.uploader.reader.checkExists(uriSource)
+	if eSourceExists != nil {
+		return nil, eSourceExists
+	}
+
+	return &job{uriSource: uriSource, uriDestination: uriDestination,
+		lastStatus: created, createdAt: time.Now(), updatedAt: time.Now()}, nil
 }
 
 func NewJobManager(uploader uploader) *jobManager {
