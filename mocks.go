@@ -16,6 +16,7 @@ type mockWriter struct {
 
 type mockStore struct {
 	store store
+	jobs  []*job
 }
 
 func (r *mockReader) read(uri string) []byte {
@@ -65,6 +66,15 @@ func (w *mockWriter) write(bytes []byte, uri string) bool {
 
 func (s mockStore) commit(job *job) bool {
 	return true
+}
+
+func (s mockStore) getJob(uriSource string, uriDestination string) (*job, error) {
+	for _, job := range s.jobs {
+		if (job.uriSource == uriSource) && (job.uriDestination == uriDestination) {
+			return job, nil
+		}
+	}
+	return nil, &jobNotFoundError{}
 }
 
 func NewMockUploader() *uploader {
