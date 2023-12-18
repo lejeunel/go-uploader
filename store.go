@@ -1,8 +1,8 @@
 package main
 
 type store interface {
-	commit(job *job) bool
-	getJob(uriSource string, uriDestination string) (*job, error)
+	Commit(job *job)
+	GetJob(uriSource string, uriDestination string) (*job, error)
 }
 
 type jobNotFoundError struct {

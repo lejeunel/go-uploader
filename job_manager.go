@@ -34,8 +34,11 @@ func (m *jobManager) create(uriSource string, uriDestination string) (*job, erro
 		return nil, eSourceExists
 	}
 
-	return &job{uriSource: uriSource, uriDestination: uriDestination,
-		status: created, createdAt: time.Now(), updatedAt: time.Now()}, nil
+	job := &job{uriSource: uriSource, uriDestination: uriDestination,
+		status: created, createdAt: time.Now(), updatedAt: time.Now()}
+	m.Commit(job)
+
+	return job, nil
 }
 
 func (m *jobManager) parse(job *job) {

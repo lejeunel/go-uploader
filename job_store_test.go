@@ -6,16 +6,20 @@ import (
 )
 
 func TestRetrieveJobFromStore(t *testing.T) {
-	jm := NewJobManager(*NewMockUploader(), *NewMockStore())
+	jm := NewJobManager(*NewMockUploader(), NewMockStore())
 	job := MakeCompletedJob(jm)
 
-	_, err := jm.getJob(job.uriSource, job.uriDestination)
+	retrieved_job, err := jm.GetJob(job.uriSource, job.uriDestination)
 
 	var got *jobNotFoundError
 	isJobNotFoundError := errors.As(err, &got)
 
-	if !isJobNotFoundError {
+	if isJobNotFoundError {
 		t.Fatalf("expected to retrieve job but got none")
+	}
+
+	if retrieved_job.status != done {
+		t.Fatalf("expected to retrieve finished job but got status %v", retrieved_job.status)
 	}
 
 }

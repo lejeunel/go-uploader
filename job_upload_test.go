@@ -13,7 +13,7 @@ func MakeCompletedJob(jm *jobManager) *job {
 }
 
 func TestJobUpload(t *testing.T) {
-	jm := NewJobManager(*NewMockUploader(), *NewMockStore())
+	jm := NewJobManager(*NewMockUploader(), NewMockStore())
 	job := MakeCompletedJob(jm)
 	if job.status != done {
 		t.Fatalf("expected job status %v, got %T", done, job.status)
@@ -21,7 +21,7 @@ func TestJobUpload(t *testing.T) {
 }
 
 func TestJobResumedUpload(t *testing.T) {
-	jm := NewJobManager(*NewMockUploader(), *NewMockStore())
+	jm := NewJobManager(*NewMockUploader(), NewMockStore())
 	job := MakeCompletedJob(jm)
 	job.transactions[0].status = pending
 	job.status = parsed

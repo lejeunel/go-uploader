@@ -15,8 +15,7 @@ type mockWriter struct {
 }
 
 type mockStore struct {
-	store store
-	jobs  []*job
+	jobs []*job
 }
 
 func (r *mockReader) read(uri string) []byte {
@@ -64,11 +63,11 @@ func (w *mockWriter) write(bytes []byte, uri string) bool {
 	return true
 }
 
-func (s mockStore) commit(job *job) bool {
-	return true
+func (s *mockStore) Commit(job *job) {
+	s.jobs = append(s.jobs, job)
 }
 
-func (s mockStore) getJob(uriSource string, uriDestination string) (*job, error) {
+func (s *mockStore) GetJob(uriSource string, uriDestination string) (*job, error) {
 	for _, job := range s.jobs {
 		if (job.uriSource == uriSource) && (job.uriDestination == uriDestination) {
 			return job, nil
