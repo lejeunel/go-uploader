@@ -15,6 +15,6 @@ type job struct {
 	uriDestination string
 	createdAt      time.Time
 	updatedAt      time.Time
-	lastStatus     int
-	transactions   []transaction
+	status         int
+	transactions   []*transaction
 }

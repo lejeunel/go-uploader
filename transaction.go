@@ -6,7 +6,7 @@ const (
 )
 
 type transaction struct {
-	uri_in  string
-	uri_out string
-	status  int
+	uriIn  string
+	uriOut string
+	status int
 }

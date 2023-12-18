@@ -14,6 +14,10 @@ type mockWriter struct {
 	writer writer
 }
 
+type mockStore struct {
+	store store
+}
+
 func (r *mockReader) read(uri string) []byte {
 	return []byte{4, 2}
 }
@@ -59,7 +63,15 @@ func (w *mockWriter) write(bytes []byte, uri string) bool {
 	return true
 }
 
+func (s mockStore) commit(job *job) bool {
+	return true
+}
+
 func NewMockUploader() *uploader {
 	return &uploader{reader: &mockReader{dataPath: "file:///path/to/data/"},
 		writer: &mockWriter{}}
+}
+
+func NewMockStore() *mockStore {
+	return &mockStore{}
 }
