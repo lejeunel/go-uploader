@@ -60,8 +60,8 @@ func (w *mockWriter) write(bytes []byte, uri string) bool {
 	return true
 }
 
-func NewMockUploader() *uploader {
+func NewMockUploader(nFiles int) *uploader {
 
-	return &uploader{reader: &mockReader{dataPath: "file:///path/to/data/", nFiles: 5},
+	return &uploader{reader: &mockReader{dataPath: "file:///path/to/data/", nFiles: nFiles},
 		writer: &mockWriter{}}
 }

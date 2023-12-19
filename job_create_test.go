@@ -31,7 +31,7 @@ func TestJobCreateScheme(t *testing.T) {
 			expectSchemeError: false,
 		},
 	}
-	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 10)
+	jm := NewMockJobManager()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
@@ -72,7 +72,7 @@ func TestJobCreateSourceError(t *testing.T) {
 			expectSourceError: true,
 		},
 	}
-	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 10)
+	jm := NewMockJobManager()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

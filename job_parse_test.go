@@ -5,7 +5,7 @@ import (
 )
 
 func TestJobParse(t *testing.T) {
-	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 1)
+	jm := NewMockJobManager()
 	job, _ := jm.CreateJob("file:///path/to/data/", "scheme://path/to/data/")
 	jm.ParseJob(job)
 	if job.Status != parsed {

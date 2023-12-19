@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -26,13 +25,12 @@ func (s *SQLiteStore) AppendJob(job *Job) *Job {
 }
 
 func (s *SQLiteStore) UpdateJob(job *Job) *Job {
-	s.db.Save(&job)
+	s.db.Omit("Transactions").Save(&job)
 	updated_job, _ := s.GetJob(job.UriSource, job.UriDestination)
 	return updated_job
 }
 
 func (s *SQLiteStore) UpdateTransaction(t *Transaction) *Transaction {
-	fmt.Println("updating transaction with status/ID", t.Status, t.ID)
 	s.db.Save(t)
 	return t
 }

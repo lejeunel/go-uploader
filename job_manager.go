@@ -109,3 +109,7 @@ func (m *jobManager) TransferJob(job *Job) *Job {
 func NewJobManager(uploader uploader, store store, nWorkers int) *jobManager {
 	return &jobManager{uploader: uploader, store: store, nWorkers: nWorkers}
 }
+
+func NewMockJobManager() *jobManager {
+	return &jobManager{uploader: *NewMockUploader(1000), store: NewMockStore(), nWorkers: 10}
+}

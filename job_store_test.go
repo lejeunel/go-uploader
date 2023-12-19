@@ -7,7 +7,7 @@ import (
 
 func TestRetrieveCompletedJobFromStore(t *testing.T) {
 
-	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 10)
+	jm := NewMockJobManager()
 	job := MakeCompletedJob(jm)
 
 	retrieved_job, err := jm.GetJob(job.UriSource, job.UriDestination)
@@ -27,7 +27,7 @@ func TestRetrieveCompletedJobFromStore(t *testing.T) {
 
 func TestRetrieveCreatedJobFromStore(t *testing.T) {
 
-	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 10)
+	jm := NewMockJobManager()
 	job, _ := jm.CreateJob("file:///path/to/data/", "scheme://path/to/data/")
 	job, err := jm.GetJob(job.UriSource, job.UriDestination)
 
@@ -49,7 +49,7 @@ func TestRetrieveCreatedJobFromStore(t *testing.T) {
 
 func TestRetrieveParsedJobFromStore(t *testing.T) {
 
-	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 10)
+	jm := NewMockJobManager()
 	job, _ := jm.CreateJob("file:///path/to/data/", "scheme://path/to/data/")
 	jm.ParseJob(job)
 
