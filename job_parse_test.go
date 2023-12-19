@@ -5,14 +5,14 @@ import (
 )
 
 func TestJobParse(t *testing.T) {
-	jm := NewJobManager(*NewMockUploader(), NewMockStore())
+	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 1)
 	job, _ := jm.create("file:///path/to/data/", "scheme://path/to/data/")
 	jm.parse(job)
-	if job.status != parsed {
-		t.Fatalf("expected job status %v, got %T", parsed, job.status)
+	if job.Status != parsed {
+		t.Fatalf("expected job status %v, got %T", parsed, job.Status)
 	}
 
-	transactions := job.transactions
+	transactions := job.Transactions
 	if len(transactions) < 1 {
 		t.Fatalf("expected transactions, got none")
 	}

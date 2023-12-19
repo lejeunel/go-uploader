@@ -8,14 +8,11 @@ import (
 type mockReader struct {
 	reader   reader
 	dataPath string
+	nFiles   int
 }
 
 type mockWriter struct {
 	writer writer
-}
-
-type mockStore struct {
-	jobs []*job
 }
 
 func (r *mockReader) read(uri string) []byte {
@@ -51,9 +48,9 @@ func (r *mockWriter) checkScheme(uri string) error {
 
 func (r *mockReader) scan(uri string) []string {
 
-	files := make([]string, 2)
-	for i := 0; i < 2; i++ {
-		files[i] = r.dataPath + fmt.Sprintf("file_%03d.ext", i)
+	files := make([]string, r.nFiles)
+	for i := 0; i < r.nFiles; i++ {
+		files[i] = r.dataPath + fmt.Sprintf("file_%05d.ext", i)
 	}
 	return files
 
@@ -63,24 +60,8 @@ func (w *mockWriter) write(bytes []byte, uri string) bool {
 	return true
 }
 
-func (s *mockStore) Commit(job *job) {
-	s.jobs = append(s.jobs, job)
-}
-
-func (s *mockStore) GetJob(uriSource string, uriDestination string) (*job, error) {
-	for _, job := range s.jobs {
-		if (job.uriSource == uriSource) && (job.uriDestination == uriDestination) {
-			return job, nil
-		}
-	}
-	return nil, &jobNotFoundError{}
-}
-
 func NewMockUploader() *uploader {
-	return &uploader{reader: &mockReader{dataPath: "file:///path/to/data/"},
-		writer: &mockWriter{}}
-}
 
-func NewMockStore() *mockStore {
-	return &mockStore{}
+	return &uploader{reader: &mockReader{dataPath: "file:///path/to/data/", nFiles: 5},
+		writer: &mockWriter{}}
 }
