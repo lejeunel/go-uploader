@@ -6,8 +6,8 @@ import (
 
 func TestJobParse(t *testing.T) {
 	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 1)
-	job, _ := jm.create("file:///path/to/data/", "scheme://path/to/data/")
-	jm.parse(job)
+	job, _ := jm.CreateJob("file:///path/to/data/", "scheme://path/to/data/")
+	jm.ParseJob(job)
 	if job.Status != parsed {
 		t.Fatalf("expected job status %v, got %T", parsed, job.Status)
 	}

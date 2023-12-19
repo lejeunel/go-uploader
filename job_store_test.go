@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func TestRetrieveJobFromStore(t *testing.T) {
+func TestRetrieveCompletedJobFromStore(t *testing.T) {
 
-	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 1)
+	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 10)
 	job := MakeCompletedJob(jm)
 
 	retrieved_job, err := jm.GetJob(job.UriSource, job.UriDestination)
@@ -15,12 +15,57 @@ func TestRetrieveJobFromStore(t *testing.T) {
 	var got *jobNotFoundError
 	isJobNotFoundError := errors.As(err, &got)
 
-	if isJobNotFoundError {
-		t.Fatalf("expected to retrieve job but got none")
+	if isJobNotFoundError || (err != nil) {
+		t.Fatalf("expected to retrieve job but got none. Error %v", err)
 	}
 
-	if retrieved_job.Status != done {
-		t.Fatalf("expected to retrieve finished job but got status %v", retrieved_job.Status)
+	if (retrieved_job.Status != done) || (err != nil) {
+		t.Fatalf("expected to retrieve finished job but got status %v. Error %v", retrieved_job.Status, err)
+	}
+
+}
+
+func TestRetrieveCreatedJobFromStore(t *testing.T) {
+
+	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 10)
+	job, _ := jm.CreateJob("file:///path/to/data/", "scheme://path/to/data/")
+	job, err := jm.GetJob(job.UriSource, job.UriDestination)
+
+	jm.ParseJob(job)
+	jm.TransferJob(job)
+
+	var got *jobNotFoundError
+	isJobNotFoundError := errors.As(err, &got)
+
+	if isJobNotFoundError || (err != nil) {
+		t.Fatalf("expected to retrieve job but got none. Error %v", err)
+	}
+
+	if (job.Status != done) || (err != nil) {
+		t.Fatalf("expected to retrieve finished job but got status %v. Error %v", job.Status, err)
+	}
+
+}
+
+func TestRetrieveParsedJobFromStore(t *testing.T) {
+
+	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 10)
+	job, _ := jm.CreateJob("file:///path/to/data/", "scheme://path/to/data/")
+	jm.ParseJob(job)
+
+	job, err := jm.GetJob(job.UriSource, job.UriDestination)
+
+	jm.TransferJob(job)
+
+	var got *jobNotFoundError
+	isJobNotFoundError := errors.As(err, &got)
+
+	if isJobNotFoundError || (err != nil) {
+		t.Fatalf("expected to retrieve job but got none. Error %v", err)
+	}
+
+	if (job.Status != done) || (err != nil) {
+		t.Fatalf("expected to retrieve finished job but got status %v. Error %v", job.Status, err)
 	}
 
 }

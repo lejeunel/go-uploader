@@ -17,7 +17,7 @@ type uploader struct {
 	writer
 }
 
-func (u uploader) upload(input string, output string) bool {
+func (u uploader) transfer(input string, output string) bool {
 	bytes := u.read(input)
 	u.write(bytes, output)
 	return true

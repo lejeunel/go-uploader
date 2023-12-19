@@ -27,9 +27,23 @@ type Job struct {
 
 type Transaction struct {
 	gorm.Model
-	id     uuid.UUID
+	ID     uuid.UUID
 	JobId  uuid.UUID
 	uriIn  string
 	uriOut string
-	status int
+	Status int
+}
+
+func (j *Job) numDoneTransactions() int {
+	numDone := 0
+	for _, t := range j.Transactions {
+		if t.Status == transferred {
+			numDone++
+		}
+	}
+	return numDone
+}
+
+func (j *Job) numTransactions() int {
+	return len(j.Transactions)
 }

@@ -8,9 +8,9 @@ import (
 )
 
 type store interface {
-	AppendJob(job *Job)
-	UpdateJob(job *Job)
-	UpdateTransaction(t *Transaction)
+	AppendJob(job *Job) *Job
+	UpdateJob(job *Job) *Job
+	UpdateTransaction(t *Transaction) *Transaction
 	GetJob(uriSource string, uriDestination string) (*Job, error)
 }
 
@@ -19,35 +19,31 @@ type SQLiteStore struct {
 	db    *gorm.DB
 }
 
-func (s *SQLiteStore) AppendJob(job *Job) {
+func (s *SQLiteStore) AppendJob(job *Job) *Job {
 	job.ID = uuid.New()
-	// fmt.Println("creating job with status/ID", job.Status, job.ID)
 	s.db.Create(job)
+	return job
 }
 
-func (s *SQLiteStore) UpdateJob(job *Job) {
-	fmt.Println("updating job with status/ID", job.Status, job.ID)
+func (s *SQLiteStore) UpdateJob(job *Job) *Job {
 	s.db.Save(&job)
+	updated_job, _ := s.GetJob(job.UriSource, job.UriDestination)
+	return updated_job
 }
 
-func (s *SQLiteStore) UpdateTransaction(t *Transaction) {
+func (s *SQLiteStore) UpdateTransaction(t *Transaction) *Transaction {
+	fmt.Println("updating transaction with status/ID", t.Status, t.ID)
 	s.db.Save(t)
+	return t
 }
 
 func (s *SQLiteStore) GetJob(uriSource string, uriDestination string) (*Job, error) {
 	var job = Job{}
-	result := s.db.Where("uri_source = ? AND uri_destination = ?", uriSource, uriDestination).First(&job)
-	// fmt.Println("retrieved job with status/ID", job.Status, job.ID)
+	result := s.db.Where("uri_source = ? AND uri_destination = ?", uriSource, uriDestination).First(&job).Preload("Transactions")
 	return &job, result.Error
 }
 
-func NewStore(url string) *SQLiteStore {
-
-	db, err := gorm.Open(sqlite.Open(url), &gorm.Config{})
-
-	if err != nil {
-		panic("failed to connect database")
-	}
+func NewStore(db *gorm.DB) *SQLiteStore {
 
 	// Migrate the schema
 	db.AutoMigrate(&Job{}, &Transaction{})
@@ -57,5 +53,12 @@ func NewStore(url string) *SQLiteStore {
 }
 
 func NewMockStore() *SQLiteStore {
-	return NewStore("file:mock.sqlite?cache=shared&_journal_mode=WAL")
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+
+	if err != nil {
+		panic("failed to connect database")
+	}
+	sqlDB, err := db.DB()
+	sqlDB.SetMaxOpenConns(1)
+	return NewStore(db)
 }

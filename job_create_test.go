@@ -31,11 +31,11 @@ func TestJobCreateScheme(t *testing.T) {
 			expectSchemeError: false,
 		},
 	}
-	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 1)
+	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 10)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			_, err := jm.create(tc.input, tc.output)
+			_, err := jm.CreateJob(tc.input, tc.output)
 
 			var got *schemeError
 			isSchemeError := errors.As(err, &got)
@@ -72,12 +72,12 @@ func TestJobCreateSourceError(t *testing.T) {
 			expectSourceError: true,
 		},
 	}
-	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 1)
+	jm := NewJobManager(*NewMockUploader(), NewMockStore(), 10)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			_, err := jm.create(tc.input, tc.output)
+			_, err := jm.CreateJob(tc.input, tc.output)
 
 			var got *sourceError
 			isSourceError := errors.As(err, &got)

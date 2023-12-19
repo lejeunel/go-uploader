@@ -1,7 +1,7 @@
 package main
 
 import (
-	// "fmt"
+	"github.com/google/uuid"
 	"strings"
 	"sync"
 )
@@ -12,7 +12,7 @@ type jobManager struct {
 	nWorkers int
 }
 
-func (m *jobManager) create(uriSource string, uriDestination string) (*Job, error) {
+func (m *jobManager) CreateJob(uriSource string, uriDestination string) (*Job, error) {
 	eSource := m.uploader.reader.checkScheme(uriSource)
 
 	if eSource != nil {
@@ -36,15 +36,14 @@ func (m *jobManager) create(uriSource string, uriDestination string) (*Job, erro
 	return job, nil
 }
 
-func (m *jobManager) parse(job *Job) {
+func (m *jobManager) ParseJob(job *Job) {
 	inURIs := m.reader.scan(job.UriSource)
 	var transactions []Transaction
 
 	for _, f := range inURIs {
 		parts := strings.Split(f, "/")
 		stem := parts[len(parts)-1]
-		// fmt.Println("parsed", f, "->", job.UriDestination+stem)
-		t := Transaction{uriIn: f, uriOut: job.UriDestination + stem}
+		t := Transaction{ID: uuid.New(), uriIn: f, uriOut: job.UriDestination + stem}
 		transactions = append(transactions, t)
 	}
 	job.Transactions = transactions
@@ -53,51 +52,45 @@ func (m *jobManager) parse(job *Job) {
 
 }
 
-func (m *jobManager) upload_worker(worker_id int, transactions <-chan Transaction,
+func (m *jobManager) transferWorker(worker_id int, transactions <-chan Transaction,
 	results chan<- Transaction,
 	wg *sync.WaitGroup) {
 	defer wg.Done()
 	for transaction := range transactions {
-		// fmt.Println("Worker", worker_id, transaction.uriIn, "->", transaction.uriOut)
 		bytes := m.uploader.read(transaction.uriIn)
 		m.uploader.write(bytes, transaction.uriOut)
-		transaction.status = transferred
+		transaction.Status = transferred
 		results <- transaction
 	}
 }
 
-func (m *jobManager) results_worker(results <-chan Transaction, wg *sync.WaitGroup) {
+func (m *jobManager) updateTransactionWorker(results <-chan Transaction, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for transaction := range results {
-		// fmt.Println("Writing result", transaction.uriIn, "->", transaction.uriOut, "/ status", transaction.status)
 		m.store.UpdateTransaction(&transaction)
 	}
 }
 
-func (m *jobManager) upload(job *Job) int {
+func (m *jobManager) TransferJob(job *Job) *Job {
 	var pending_transactions []Transaction
 	for _, t := range job.Transactions {
-		if t.status == pending {
+		if t.Status == pending {
 			pending_transactions = append(pending_transactions, t)
 		}
 	}
 
-	nWorkers := 4
 	todo := make(chan Transaction, len(pending_transactions))
 	results := make(chan Transaction, len(pending_transactions))
 	var wg sync.WaitGroup
 	var wg2 sync.WaitGroup
 
-	// fmt.Println("Spawning", nWorkers, "workers")
-	for w := 0; w < nWorkers; w++ {
+	for w := 0; w < m.nWorkers; w++ {
 		wg.Add(1)
-		go m.upload_worker(w, todo, results, &wg)
+		go m.transferWorker(w, todo, results, &wg)
 	}
 
-	// fmt.Println("Spawning results worker")
-	go m.results_worker(results, &wg2)
+	go m.updateTransactionWorker(results, &wg2)
 
-	// fmt.Println("Appending to transaction channel...")
 	for _, t := range pending_transactions {
 		todo <- t
 	}
@@ -107,9 +100,9 @@ func (m *jobManager) upload(job *Job) int {
 	wg2.Wait()
 
 	job.Status = done
-	m.store.UpdateJob(job)
+	done_job := m.store.UpdateJob(job)
 
-	return 0
+	return done_job
 
 }
 
