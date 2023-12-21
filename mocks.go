@@ -15,8 +15,8 @@ type mockWriter struct {
 	writer writer
 }
 
-func (r *mockReader) read(uri string) []byte {
-	return []byte{4, 2}
+func (r *mockReader) read(uri string) ([]byte, error) {
+	return []byte{4, 2}, nil
 }
 
 func (r *mockReader) checkScheme(uri string) error {
@@ -46,18 +46,18 @@ func (r *mockWriter) checkScheme(uri string) error {
 	}
 }
 
-func (r *mockReader) scan(uri string) []string {
+func (r *mockReader) scan(uri string) ([]string, error) {
 
 	files := make([]string, r.nFiles)
 	for i := 0; i < r.nFiles; i++ {
 		files[i] = r.dataPath + fmt.Sprintf("file_%05d.ext", i)
 	}
-	return files
+	return files, nil
 
 }
 
-func (w *mockWriter) write(bytes []byte, uri string) bool {
-	return true
+func (w *mockWriter) write(bytes []byte, uri string) error {
+	return nil
 }
 
 func NewMockUploader(nFiles int) *uploader {

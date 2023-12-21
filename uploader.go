@@ -1,24 +1,23 @@
 package main
 
-type reader interface {
-	read(uri string) []byte
-	scan(uri string) []string
-	checkScheme(uri string) error
-	checkExists(uri string) error
-}
-
-type writer interface {
-	write(bytes []byte, uri string) bool
-	checkScheme(uri string) error
-}
+import (
+	"errors"
+)
 
 type uploader struct {
 	reader
 	writer
 }
 
-func (u uploader) transfer(input string, output string) bool {
-	bytes := u.read(input)
-	u.write(bytes, output)
-	return true
+type uploadError struct {
+	msg    string
+	uriIn  string
+	uriOut string
+}
+
+func (u uploader) transfer(input string, output string) error {
+	bytes, err_read := u.read(input)
+	err_write := u.write(bytes, output)
+
+	return errors.Join(err_read, err_write)
 }

@@ -8,7 +8,7 @@ import (
 func TestRetrieveCompletedJobFromStore(t *testing.T) {
 
 	jm := NewMockJobManager()
-	job := MakeCompletedJob(jm)
+	job, _ := MakeCompletedJob(jm)
 
 	retrieved_job, err := jm.GetJob(job.UriSource, job.UriDestination)
 

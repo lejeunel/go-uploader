@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 	"strings"
 	"sync"
 )
@@ -36,8 +39,12 @@ func (m *jobManager) CreateJob(uriSource string, uriDestination string) (*Job, e
 	return job, nil
 }
 
-func (m *jobManager) ParseJob(job *Job) {
-	inURIs := m.reader.scan(job.UriSource)
+func (m *jobManager) ParseJob(job *Job) error {
+	inURIs, err := m.reader.scan(job.UriSource)
+	if err != nil {
+		return err
+	}
+
 	var transactions []Transaction
 
 	for _, f := range inURIs {
@@ -50,18 +57,8 @@ func (m *jobManager) ParseJob(job *Job) {
 	job.Status = parsed
 	m.store.UpdateJob(job)
 
-}
+	return nil
 
-func (m *jobManager) transferWorker(worker_id int, transactions <-chan Transaction,
-	results chan<- Transaction,
-	wg *sync.WaitGroup) {
-	defer wg.Done()
-	for transaction := range transactions {
-		bytes := m.uploader.read(transaction.uriIn)
-		m.uploader.write(bytes, transaction.uriOut)
-		transaction.Status = transferred
-		results <- transaction
-	}
 }
 
 func (m *jobManager) updateTransactionWorker(results <-chan Transaction, wg *sync.WaitGroup) {
@@ -71,7 +68,22 @@ func (m *jobManager) updateTransactionWorker(results <-chan Transaction, wg *syn
 	}
 }
 
-func (m *jobManager) TransferJob(job *Job) *Job {
+func (m *jobManager) transferWorker(ctx context.Context, worker_id int, transactions <-chan Transaction,
+	results chan<- Transaction) error {
+	for transaction := range transactions {
+		bytes, err_read := m.uploader.read(transaction.uriIn)
+		err_write := m.uploader.write(bytes, transaction.uriOut)
+		transaction.Status = transferred
+		results <- transaction
+		joined_err := errors.Join(err_read, err_write)
+		if joined_err != nil {
+			return joined_err
+		}
+	}
+	return nil
+}
+
+func (m *jobManager) TransferJob(job *Job) (*Job, error) {
 	var pending_transactions []Transaction
 	for _, t := range job.Transactions {
 		if t.Status == pending {
@@ -81,28 +93,33 @@ func (m *jobManager) TransferJob(job *Job) *Job {
 
 	todo := make(chan Transaction, len(pending_transactions))
 	results := make(chan Transaction, len(pending_transactions))
+	ctx := context.Background()
+	eg, egCtx := errgroup.WithContext(ctx)
 	var wg sync.WaitGroup
-	var wg2 sync.WaitGroup
 
 	for w := 0; w < m.nWorkers; w++ {
-		wg.Add(1)
-		go m.transferWorker(w, todo, results, &wg)
+		eg.Go(func() error {
+			return m.transferWorker(egCtx, w, todo, results)
+		})
 	}
-
-	go m.updateTransactionWorker(results, &wg2)
 
 	for _, t := range pending_transactions {
 		todo <- t
 	}
 	close(todo)
 
+	go m.updateTransactionWorker(results, &wg)
+
+	if err := eg.Wait(); err != nil {
+		return job, err
+	}
+
 	wg.Wait()
-	wg2.Wait()
 
 	job.Status = done
 	done_job := m.store.UpdateJob(job)
 
-	return done_job
+	return done_job, nil
 
 }
 
@@ -111,5 +128,5 @@ func NewJobManager(uploader uploader, store store, nWorkers int) *jobManager {
 }
 
 func NewMockJobManager() *jobManager {
-	return &jobManager{uploader: *NewMockUploader(1000), store: NewMockStore(), nWorkers: 10}
+	return &jobManager{uploader: *NewMockUploader(10), store: NewMockStore(), nWorkers: 5}
 }
