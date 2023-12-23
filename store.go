@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -37,6 +38,7 @@ type store interface {
 	UpdateTransaction(t *Transaction) error
 	FindJob(uriSource string, uriDestination string) (*Job, error)
 	getTransactions(jobID uuid.UUID) ([]Transaction, error)
+	DeleteJob(job *Job) error
 }
 
 type SQLiteStore struct {
@@ -122,10 +124,21 @@ func (s *SQLiteStore) FindJob(uriSource string, uriDestination string) (*Job, er
 
 	return &job, err
 }
+func (s *SQLiteStore) DeleteJob(job *Job) error {
+	tx := s.db.MustBegin()
+
+	query_j := fmt.Sprintf("DELETE FROM jobs WHERE id=\"%s\"", job.ID)
+	query_t := fmt.Sprintf("DELETE FROM transactions WHERE job_id=\"%s\"", job.ID)
+	_, err_j := tx.Exec(query_j)
+	_, err_t := tx.Exec(query_t)
+
+	tx.Commit()
+
+	return errors.Join(err_j, err_t)
+}
 
 func NewStore(db *sqlx.DB) *SQLiteStore {
 
-	// Migrate the schema
 	db.MustExec(transaction_schema)
 	db.MustExec(job_schema)
 

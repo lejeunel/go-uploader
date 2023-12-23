@@ -147,5 +147,5 @@ func NewMockJobManager() *jobManager {
 	logger := MakeLogger(log.WarnLevel)
 	return &jobManager{readWriter: *NewMockReadWriter(10), store: NewMockStore(),
 		logger:   logger,
-		nWorkers: 10}
+		nWorkers: 2}
 }
