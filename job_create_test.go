@@ -2,10 +2,11 @@ package main
 
 import (
 	"errors"
+	log "github.com/sirupsen/logrus"
 	"testing"
 )
 
-func TestJobCreateScheme(t *testing.T) {
+func TestCreateScheme(t *testing.T) {
 	testCases := []struct {
 		name              string
 		input             string
@@ -52,7 +53,7 @@ func TestJobCreateScheme(t *testing.T) {
 	}
 }
 
-func TestJobCreateSourceError(t *testing.T) {
+func TestCreateSourceError(t *testing.T) {
 	testCases := []struct {
 		name              string
 		input             string
@@ -93,4 +94,24 @@ func TestJobCreateSourceError(t *testing.T) {
 
 	}
 
+}
+
+func TestCreateDuplicate(t *testing.T) {
+	jm := NewMockJobManager()
+	MakeCompletedJob(jm)
+	_, err := MakeCompletedJob(jm)
+
+	var got *duplicateJobError
+	isDuplicate := errors.As(err, &got)
+
+	if !isDuplicate {
+		t.Fatalf("expected to receive duplicateJobError but got %v", err)
+	}
+}
+
+func TestLogger(t *testing.T) {
+	jm := NewMockJobManager()
+	jm.logger.WithFields(log.Fields{
+		"in":  "test",
+		"out": "test"}).Info("transferred")
 }

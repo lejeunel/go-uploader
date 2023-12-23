@@ -3,33 +3,32 @@ package main
 import (
 	"context"
 	"errors"
-	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	"strings"
 	"sync"
 )
 
 type jobManager struct {
-	uploader
+	readWriter ReadWriter
 	store
+	logger   *log.Logger
 	nWorkers int
 }
 
 func (m *jobManager) CreateJob(uriSource string, uriDestination string) (*Job, error) {
-	eSource := m.uploader.reader.checkScheme(uriSource)
+	eSource := m.readWriter.reader.checkScheme(uriSource)
+	eDestination := m.readWriter.writer.checkScheme(uriDestination)
+	eSourceExists := m.readWriter.reader.checkExists(uriSource)
+	duplicate_job, eJobNotFound := m.store.FindJob(uriSource, uriDestination)
 
-	if eSource != nil {
-		return nil, eSource
+	joined_err := errors.Join(eDestination, eSourceExists, eSource)
+	if eJobNotFound == nil {
+		return duplicate_job, errors.Join(joined_err, &duplicateJobError{job: duplicate_job})
 	}
 
-	eDestination := m.uploader.writer.checkScheme(uriDestination)
-	if eDestination != nil {
-		return nil, eDestination
-	}
-
-	eSourceExists := m.uploader.reader.checkExists(uriSource)
-	if eSourceExists != nil {
-		return nil, eSourceExists
+	if joined_err != nil {
+		return nil, joined_err
 	}
 
 	job := &Job{UriSource: uriSource, UriDestination: uriDestination,
@@ -39,10 +38,10 @@ func (m *jobManager) CreateJob(uriSource string, uriDestination string) (*Job, e
 	return job, nil
 }
 
-func (m *jobManager) ParseJob(job *Job) error {
-	inURIs, err := m.reader.scan(job.UriSource)
+func (m *jobManager) ParseJob(job *Job) (*Job, error) {
+	inURIs, err := m.readWriter.reader.scan(job.UriSource)
 	if err != nil {
-		return err
+		return job, err
 	}
 
 	var transactions []Transaction
@@ -50,14 +49,15 @@ func (m *jobManager) ParseJob(job *Job) error {
 	for _, f := range inURIs {
 		parts := strings.Split(f, "/")
 		stem := parts[len(parts)-1]
-		t := Transaction{ID: uuid.New(), uriIn: f, uriOut: job.UriDestination + stem}
+		t := Transaction{UriSource: f, UriDestination: job.UriDestination + stem}
 		transactions = append(transactions, t)
 	}
 	job.Transactions = transactions
 	job.Status = parsed
 	m.store.UpdateJob(job)
+	job, _ = m.store.AppendJobTransactions(job)
 
-	return nil
+	return job, err
 
 }
 
@@ -65,19 +65,24 @@ func (m *jobManager) updateTransactionWorker(results <-chan Transaction, wg *syn
 	defer wg.Done()
 	for transaction := range results {
 		m.store.UpdateTransaction(&transaction)
+		m.logger.WithFields(log.Fields{
+			"in":  transaction.UriSource,
+			"out": transaction.UriDestination}).Info("transferred")
 	}
 }
 
 func (m *jobManager) transferWorker(ctx context.Context, worker_id int, transactions <-chan Transaction,
 	results chan<- Transaction) error {
 	for transaction := range transactions {
-		bytes, err_read := m.uploader.read(transaction.uriIn)
-		err_write := m.uploader.write(bytes, transaction.uriOut)
-		transaction.Status = transferred
-		results <- transaction
+		bytes, err_read := m.readWriter.reader.read(transaction.UriSource)
+		err_write := m.readWriter.writer.write(bytes, transaction.UriDestination)
 		joined_err := errors.Join(err_read, err_write)
 		if joined_err != nil {
 			return joined_err
+		} else {
+			transaction.Status = transferred
+			results <- transaction
+
 		}
 	}
 	return nil
@@ -95,7 +100,6 @@ func (m *jobManager) TransferJob(job *Job) (*Job, error) {
 	results := make(chan Transaction, len(pending_transactions))
 	ctx := context.Background()
 	eg, egCtx := errgroup.WithContext(ctx)
-	var wg sync.WaitGroup
 
 	for w := 0; w < m.nWorkers; w++ {
 		eg.Go(func() error {
@@ -108,25 +112,40 @@ func (m *jobManager) TransferJob(job *Job) (*Job, error) {
 	}
 	close(todo)
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go m.updateTransactionWorker(results, &wg)
 
-	if err := eg.Wait(); err != nil {
+	err := eg.Wait()
+	if err != nil {
 		return job, err
 	}
+	close(results)
 
 	wg.Wait()
 
 	job.Status = done
-	done_job := m.store.UpdateJob(job)
+	m.store.UpdateJob(job)
+	done_job, _ := m.store.FindJob(job.UriSource, job.UriDestination)
 
-	return done_job, nil
+	return done_job, err
 
 }
 
-func NewJobManager(uploader uploader, store store, nWorkers int) *jobManager {
-	return &jobManager{uploader: uploader, store: store, nWorkers: nWorkers}
+func NewJobManager(readWriter ReadWriter, store store, nWorkers int) *jobManager {
+	return &jobManager{readWriter: readWriter, store: store, nWorkers: nWorkers}
+}
+
+func MakeLogger(level log.Level) *log.Logger {
+	logger := log.New()
+	logger.SetLevel(log.WarnLevel)
+	logger.SetFormatter(&log.JSONFormatter{})
+	return logger
 }
 
 func NewMockJobManager() *jobManager {
-	return &jobManager{uploader: *NewMockUploader(10), store: NewMockStore(), nWorkers: 5}
+	logger := MakeLogger(log.WarnLevel)
+	return &jobManager{readWriter: *NewMockReadWriter(10), store: NewMockStore(),
+		logger:   logger,
+		nWorkers: 10}
 }

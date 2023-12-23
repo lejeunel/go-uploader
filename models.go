@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 const (
@@ -17,21 +16,23 @@ const (
 )
 
 type Job struct {
-	gorm.Model
-	ID             uuid.UUID
-	UriSource      string
-	UriDestination string
-	Status         int
+	ID             uuid.UUID `db:"id"`
+	UriSource      string    `db:"uri_source"`
+	UriDestination string    `db:"uri_destination"`
+	Status         int       `db:"status"`
+	CreatedAt      string    `db:"created_at"`
+	UpdatedAt      string    `db:"updated_at"`
 	Transactions   []Transaction
 }
 
 type Transaction struct {
-	gorm.Model
-	ID     uuid.UUID
-	JobId  uuid.UUID
-	uriIn  string
-	uriOut string
-	Status int
+	ID             uuid.UUID `db:"id"`
+	JobId          uuid.UUID `db:"job_id"`
+	UriSource      string    `db:"uri_source"`
+	UriDestination string    `db:"uri_destination"`
+	CreatedAt      string    `db:"created_at"`
+	UpdatedAt      string    `db:"updated_at"`
+	Status         int       `db:"status"`
 }
 
 func (j *Job) numDoneTransactions() int {

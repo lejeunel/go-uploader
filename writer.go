@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-type writer interface {
+type Writer interface {
 	write(bytes []byte, uri string) error
 	checkScheme(uri string) error
 }

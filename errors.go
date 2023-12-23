@@ -5,17 +5,21 @@ import (
 )
 
 type jobNotFoundError struct {
+	msg string
 }
 
 func (e *jobNotFoundError) Error() string {
-	return "Job not found error"
+	return fmt.Sprintf("Error fetching job: %s", e.msg)
 }
 
-type jobInitError struct {
+type duplicateJobError struct {
+	job *Job
 }
 
-func (e *jobInitError) Error() string {
-	return "Error initializing job"
+func (e *duplicateJobError) Error() string {
+	return fmt.Sprintf(
+		"Attempting to create a job, but found duplicate with id %s",
+		e.job.ID)
 }
 
 type schemeError struct {

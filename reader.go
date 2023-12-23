@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-type reader interface {
+type Reader interface {
 	read(uri string) ([]byte, error)
 	scan(uri string) ([]string, error)
 	checkScheme(uri string) error

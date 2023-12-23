@@ -5,27 +5,27 @@ import (
 	"testing"
 )
 
-type mockReaderErrorOnRead struct {
-	mockReader
+type MockReaderErrorOnRead struct {
+	MockReader
 }
 
-func (r *mockReaderErrorOnRead) read(uri string) ([]byte, error) {
+func (r *MockReaderErrorOnRead) read(uri string) ([]byte, error) {
 	return []byte{}, &readerError{uri: uri}
 }
 
 type mockWriterErrorOnWrite struct {
-	mockWriter
+	MockWriter
 }
 
 func (r *mockWriterErrorOnWrite) write(bytes []byte, uri string) error {
 	return &writerError{uri: uri}
 }
 
-func TestJobUploadReadError(t *testing.T) {
-	uploader := uploader{reader: &mockReaderErrorOnRead{mockReader{dataPath: "file:///path/to/data/",
+func TestUploadReadError(t *testing.T) {
+	readWriter := ReadWriter{reader: &MockReaderErrorOnRead{MockReader{dataPath: "file:///path/to/data/",
 		nFiles: 10}},
-		writer: &mockWriter{}}
-	jm := &jobManager{uploader: uploader, store: NewMockStore(), nWorkers: 5}
+		writer: &MockWriter{}}
+	jm := &jobManager{readWriter: readWriter, store: NewMockStore(), nWorkers: 5}
 	_, err := MakeCompletedJob(jm)
 
 	var got *readerError
@@ -36,11 +36,11 @@ func TestJobUploadReadError(t *testing.T) {
 	}
 }
 
-func TestJobUploadWriteError(t *testing.T) {
-	uploader := uploader{reader: &mockReader{dataPath: "file:///path/to/data/",
+func TestUploadWriteError(t *testing.T) {
+	readWriter := ReadWriter{reader: &MockReader{dataPath: "file:///path/to/data/",
 		nFiles: 10},
 		writer: &mockWriterErrorOnWrite{}}
-	jm := &jobManager{uploader: uploader, store: NewMockStore(), nWorkers: 5}
+	jm := &jobManager{readWriter: readWriter, store: NewMockStore(), nWorkers: 5}
 	_, err := MakeCompletedJob(jm)
 
 	var got *writerError

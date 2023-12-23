@@ -1,27 +1,40 @@
 package main
 
 import (
-	"errors"
 	"testing"
 )
 
 func MakeCompletedJob(jm *jobManager) (*Job, error) {
 	job, err_create := jm.CreateJob("file:///path/to/data/", "scheme://path/to/data/")
-	err_parse := jm.ParseJob(job)
-	_, err_trf := jm.TransferJob(job)
+	if err_create != nil {
+		return &Job{}, err_create
+	}
+	job, err_parse := jm.ParseJob(job)
+	if err_parse != nil {
+		return &Job{}, err_parse
+	}
+	job, err_trf := jm.TransferJob(job)
+	if err_trf != nil {
+		return &Job{}, err_trf
+	}
 
-	return job, errors.Join(err_create, err_parse, err_trf)
+	return job, nil
 }
 
-func TestJobUpload(t *testing.T) {
+func TestUpload(t *testing.T) {
 	jm := NewMockJobManager()
 	job, _ := MakeCompletedJob(jm)
 	if job.Status != done {
 		t.Fatalf("expected job status %v, got %T", done, job.Status)
 	}
+	done_transactions := job.numDoneTransactions()
+	n_transactions := job.numTransactions()
+	if done_transactions != len(job.Transactions) {
+		t.Fatalf("expected all of %v transactions to complete, got %v", n_transactions, done_transactions)
+	}
 }
 
-func TestJobResumedUpload(t *testing.T) {
+func TestResumedUpload(t *testing.T) {
 	jm := NewMockJobManager()
 	job, _ := MakeCompletedJob(jm)
 	job.Transactions[0].Status = pending

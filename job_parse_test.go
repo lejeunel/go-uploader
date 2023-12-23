@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestJobParse(t *testing.T) {
+func TestParse(t *testing.T) {
 	jm := NewMockJobManager()
 	job, _ := jm.CreateJob("file:///path/to/data/", "scheme://path/to/data/")
 	jm.ParseJob(job)
