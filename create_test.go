@@ -36,7 +36,7 @@ func TestCreateScheme(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			_, err := jm.CreateJob(tc.input, tc.output)
+			_, err := jm.Create(tc.input, tc.output)
 
 			var got *schemeError
 			isSchemeError := errors.As(err, &got)
@@ -78,7 +78,7 @@ func TestCreateSourceError(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			_, err := jm.CreateJob(tc.input, tc.output)
+			_, err := jm.Create(tc.input, tc.output)
 
 			var got *sourceError
 			isSourceError := errors.As(err, &got)

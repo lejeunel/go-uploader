@@ -10,17 +10,47 @@ import (
 )
 
 type jobManager struct {
+	Store
 	readWriter ReadWriter
-	store
-	logger   *log.Logger
-	nWorkers int
+	logger     *log.Logger
+	nWorkers   int
 }
 
-func (m *jobManager) CreateJob(uriSource string, uriDestination string) (*Job, error) {
+func (m *jobManager) Run(uriSource string, uriDestination string) (*Job, error) {
+	job, err_create := m.Create("file:///path/to/data/", "scheme://path/to/data/")
+	if err_create != nil {
+		return nil, err_create
+	}
+	job, err_parse := m.Parse(job)
+	if err_parse != nil {
+		return job, err_parse
+	}
+	job, err_trf := m.Transfer(job)
+	if err_trf != nil {
+		return job, err_trf
+	}
+
+	return job, nil
+}
+
+func (m *jobManager) Resume(job *Job) (*Job, error) {
+	job, err_parse := m.Parse(job)
+	if err_parse != nil {
+		return job, err_parse
+	}
+	job, err_trf := m.Transfer(job)
+	if err_trf != nil {
+		return job, err_trf
+	}
+
+	return job, nil
+}
+
+func (m *jobManager) Create(uriSource string, uriDestination string) (*Job, error) {
 	eSource := m.readWriter.reader.checkScheme(uriSource)
 	eDestination := m.readWriter.writer.checkScheme(uriDestination)
 	eSourceExists := m.readWriter.reader.checkExists(uriSource)
-	duplicate_job, eJobNotFound := m.store.FindJob(uriSource, uriDestination)
+	duplicate_job, eJobNotFound := m.FindJob(uriSource, uriDestination)
 
 	joined_err := errors.Join(eDestination, eSourceExists, eSource)
 	if eJobNotFound == nil {
@@ -33,12 +63,16 @@ func (m *jobManager) CreateJob(uriSource string, uriDestination string) (*Job, e
 
 	job := &Job{UriSource: uriSource, UriDestination: uriDestination,
 		Status: created}
-	m.store.AppendJob(job)
+	m.AppendJob(job)
 
 	return job, nil
 }
 
-func (m *jobManager) ParseJob(job *Job) (*Job, error) {
+func (m *jobManager) Parse(job *Job) (*Job, error) {
+	if job.Status >= parsed {
+		return job, nil
+	}
+
 	inURIs, err := m.readWriter.reader.scan(job.UriSource)
 	if err != nil {
 		return job, err
@@ -54,17 +88,17 @@ func (m *jobManager) ParseJob(job *Job) (*Job, error) {
 	}
 	job.Transactions = transactions
 	job.Status = parsed
-	m.store.UpdateJob(job)
-	job, _ = m.store.AppendJobTransactions(job)
+	err_upd := m.UpdateJobStatus(job)
+	job, err_apd := m.AppendJobTransactions(job)
 
-	return job, err
+	return job, errors.Join(err_upd, err_apd)
 
 }
 
 func (m *jobManager) updateTransactionWorker(results <-chan Transaction, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for transaction := range results {
-		m.store.UpdateTransaction(&transaction)
+		m.UpdateTransactionStatus(&transaction)
 		m.logger.WithFields(log.Fields{
 			"in":  transaction.UriSource,
 			"out": transaction.UriDestination}).Info("transferred")
@@ -88,7 +122,7 @@ func (m *jobManager) transferWorker(ctx context.Context, worker_id int, transact
 	return nil
 }
 
-func (m *jobManager) TransferJob(job *Job) (*Job, error) {
+func (m *jobManager) Transfer(job *Job) (*Job, error) {
 	var pending_transactions []Transaction
 	for _, t := range job.Transactions {
 		if t.Status == pending {
@@ -125,15 +159,15 @@ func (m *jobManager) TransferJob(job *Job) (*Job, error) {
 	wg.Wait()
 
 	job.Status = done
-	m.store.UpdateJob(job)
-	done_job, _ := m.store.FindJob(job.UriSource, job.UriDestination)
+	err_upd := m.UpdateJobStatus(job)
+	done_job, err_find := m.FindJob(job.UriSource, job.UriDestination)
 
-	return done_job, err
+	return done_job, errors.Join(err, err_upd, err_find)
 
 }
 
-func NewJobManager(readWriter ReadWriter, store store, nWorkers int) *jobManager {
-	return &jobManager{readWriter: readWriter, store: store, nWorkers: nWorkers}
+func NewJobManager(readWriter ReadWriter, store Store, nWorkers int) *jobManager {
+	return &jobManager{readWriter: readWriter, Store: store, nWorkers: nWorkers}
 }
 
 func MakeLogger(level log.Level) *log.Logger {
@@ -141,11 +175,4 @@ func MakeLogger(level log.Level) *log.Logger {
 	logger.SetLevel(log.WarnLevel)
 	logger.SetFormatter(&log.JSONFormatter{})
 	return logger
-}
-
-func NewMockJobManager() *jobManager {
-	logger := MakeLogger(log.WarnLevel)
-	return &jobManager{readWriter: *NewMockReadWriter(10), store: NewMockStore(),
-		logger:   logger,
-		nWorkers: 2}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"strings"
 )
 
@@ -64,4 +65,11 @@ func NewMockReadWriter(nFiles int) *ReadWriter {
 
 	return &ReadWriter{reader: &MockReader{dataPath: "file:///path/to/data/", nFiles: nFiles},
 		writer: &MockWriter{}}
+}
+
+func NewMockJobManager() *jobManager {
+	logger := MakeLogger(log.WarnLevel)
+	return &jobManager{readWriter: *NewMockReadWriter(4), Store: NewMockStore(),
+		logger:   logger,
+		nWorkers: 2}
 }

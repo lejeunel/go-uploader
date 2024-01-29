@@ -7,11 +7,11 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
-	"strconv"
+	"time"
 )
 
 var job_schema = `
-CREATE TABLE jobs (
+CREATE TABLE IF NOT EXISTS jobs (
     id varchar(16),
     uri_source text,
     uri_destination text,
@@ -21,7 +21,7 @@ CREATE TABLE jobs (
 );`
 
 var transaction_schema = `
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
     id varchar(16),
     job_id varchar(16),
     uri_source text,
@@ -31,31 +31,26 @@ CREATE TABLE transactions (
 	updated_at text
 );`
 
-type store interface {
+type Store interface {
 	AppendJob(job *Job) (*Job, error)
 	AppendJobTransactions(job *Job) (*Job, error)
-	UpdateJob(job *Job) error
-	UpdateTransaction(t *Transaction) error
+	UpdateJobStatus(job *Job) error
+	UpdateTransactionStatus(t *Transaction) error
 	FindJob(uriSource string, uriDestination string) (*Job, error)
 	getTransactions(jobID uuid.UUID) ([]Transaction, error)
 	DeleteJob(job *Job) error
 }
 
 type SQLiteStore struct {
-	store store
+	store Store
 	db    *sqlx.DB
 }
 
 func (s *SQLiteStore) AppendJob(job *Job) (*Job, error) {
-	tx := s.db.MustBegin()
 	job.ID = uuid.New()
-	query := fmt.Sprintf(
-		"INSERT INTO jobs (id, uri_source, uri_destination, status, created_at) VALUES (\"%s\", \"%s\", \"%s\", %s, datetime())",
-		job.ID, job.UriSource, job.UriDestination,
-		strconv.Itoa(job.Status))
-	_, err := tx.Exec(query)
+	query := "INSERT INTO jobs (id, uri_source, uri_destination, status, created_at) VALUES (?, ?, ?, ?, ?)"
+	_, err := s.db.Exec(query, job.ID, job.UriSource, job.UriDestination, job.Status, time.Now().String())
 
-	tx.Commit()
 	return job, err
 }
 
@@ -65,11 +60,9 @@ func (s *SQLiteStore) AppendJobTransactions(job *Job) (*Job, error) {
 	for _, t := range job.Transactions {
 		t.ID = uuid.New()
 		t.JobId = job.ID
-		query := fmt.Sprintf(
-			"INSERT INTO transactions (id, job_id, uri_source, uri_destination, status, created_at) VALUES (\"%s\", \"%s\", \"%s\", \"%s\", %s, datetime())",
-			t.ID, job.ID, t.UriSource, t.UriDestination,
-			strconv.Itoa(t.Status))
-		_, err := tx.Exec(query)
+		t.CreatedAt = time.Now().String()
+		query := "INSERT INTO transactions (id, job_id, uri_source, uri_destination, status, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+		_, err := tx.Exec(query, t.ID, job.ID, t.UriSource, t.UriDestination, t.Status, t.CreatedAt)
 		if err != nil {
 			return job, err
 		}
@@ -80,59 +73,45 @@ func (s *SQLiteStore) AppendJobTransactions(job *Job) (*Job, error) {
 	return job, nil
 }
 
-func (s *SQLiteStore) UpdateJob(job *Job) error {
-	tx := s.db.MustBegin()
-	_, err := tx.Exec(
-		"UPDATE jobs SET status=$1, updated_at=datetime() WHERE id=$2",
-		job.Status, job.ID)
-	tx.Commit()
+func (s *SQLiteStore) UpdateJobStatus(job *Job) error {
+	query := "UPDATE jobs SET status=?, updated_at=? WHERE id=?"
+	_, err := s.db.Exec(query, job.Status, time.Now().String(), job.ID)
 
 	return err
 }
 
-func (s *SQLiteStore) UpdateTransaction(t *Transaction) error {
+func (s *SQLiteStore) UpdateTransactionStatus(t *Transaction) error {
 
-	tx := s.db.MustBegin()
-	_, err := tx.Exec(
-		"UPDATE transactions SET status=$1, updated_at=datetime() WHERE id=$2",
-		t.Status, t.ID)
-	tx.Commit()
+	query := "UPDATE transactions SET status=?, updated_at=? WHERE id=?"
+	_, err := s.db.Exec(query, t.Status, time.Now().String(), t.ID)
 	return err
 }
 
 func (s *SQLiteStore) getTransactions(jobID uuid.UUID) ([]Transaction, error) {
-	query := fmt.Sprintf("SELECT id, job_id, status, uri_source, uri_destination, created_at, updated_at FROM transactions WHERE job_id=\"%s\";", jobID)
+	query := "SELECT id, job_id, status, uri_source, uri_destination, created_at, updated_at FROM transactions WHERE job_id=?"
 	transactions := []Transaction{}
-	err := s.db.Select(&transactions, query)
+	err := s.db.Select(&transactions, query, jobID)
 
 	return transactions, err
 }
 
 func (s *SQLiteStore) FindJob(uriSource string, uriDestination string) (*Job, error) {
-	query := fmt.Sprintf("SELECT id, uri_source, uri_destination, status, created_at, updated_at FROM jobs WHERE uri_source=\"%s\" AND uri_destination=\"%s\"",
-		uriSource, uriDestination)
-	jobs := []Job{}
-	err := s.db.Select(&jobs, query)
+	query := "SELECT id, uri_source, uri_destination, status, created_at, updated_at FROM jobs WHERE uri_source=? AND uri_destination=?"
+	job := Job{}
+	err := s.db.Get(&job, query, uriSource, uriDestination)
 
-	if len(jobs) == 0 {
+	if err != nil {
 		return nil, &jobNotFoundError{fmt.Sprintf("Could not find job with source and destination: %s %s",
 			uriSource, uriDestination)}
 	}
 
-	job := jobs[0]
 	job.Transactions, err = s.getTransactions(job.ID)
 
 	return &job, err
 }
 func (s *SQLiteStore) DeleteJob(job *Job) error {
-	tx := s.db.MustBegin()
-
-	query_j := fmt.Sprintf("DELETE FROM jobs WHERE id=\"%s\"", job.ID)
-	query_t := fmt.Sprintf("DELETE FROM transactions WHERE job_id=\"%s\"", job.ID)
-	_, err_j := tx.Exec(query_j)
-	_, err_t := tx.Exec(query_t)
-
-	tx.Commit()
+	_, err_j := s.db.Exec("DELETE FROM jobs WHERE id=?", job.ID)
+	_, err_t := s.db.Exec("DELETE FROM transactions WHERE job_id=?", job.ID)
 
 	return errors.Join(err_j, err_t)
 }

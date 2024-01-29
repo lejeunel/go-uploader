@@ -5,17 +5,9 @@ import (
 )
 
 func MakeCompletedJob(jm *jobManager) (*Job, error) {
-	job, err_create := jm.CreateJob("file:///path/to/data/", "scheme://path/to/data/")
-	if err_create != nil {
-		return &Job{}, err_create
-	}
-	job, err_parse := jm.ParseJob(job)
-	if err_parse != nil {
-		return &Job{}, err_parse
-	}
-	job, err_trf := jm.TransferJob(job)
-	if err_trf != nil {
-		return &Job{}, err_trf
+	job, err := jm.Run("file:///path/to/data/", "scheme://path/to/data/")
+	if err != nil {
+		return nil, err
 	}
 
 	return job, nil
@@ -34,15 +26,27 @@ func TestUpload(t *testing.T) {
 	}
 }
 
-func TestResumedUpload(t *testing.T) {
+func TestResumeAtTransfer(t *testing.T) {
 	jm := NewMockJobManager()
 	job, _ := MakeCompletedJob(jm)
 	job.Transactions[0].Status = pending
 	job.Status = parsed
 
-	job_, _ := jm.TransferJob(job)
+	job_, _ := jm.Transfer(job)
 	done_transactions := job_.numDoneTransactions()
 	if done_transactions != len(job_.Transactions) {
+		t.Fatalf("expected all transactions to complete, got %v", done_transactions)
+	}
+}
+
+func TestResumeAtParsing(t *testing.T) {
+	jm := NewMockJobManager()
+	job, _ := jm.Create("file:///path/to/data/", "scheme://path/to/data/")
+	jm.Parse(job)
+
+	new_job, _ := jm.Resume(job)
+	done_transactions := new_job.numDoneTransactions()
+	if done_transactions != len(new_job.Transactions) {
 		t.Fatalf("expected all transactions to complete, got %v", done_transactions)
 	}
 }
