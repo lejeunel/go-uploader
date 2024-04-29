@@ -10,7 +10,7 @@ func TestRetrieveCompletedFromStore(t *testing.T) {
 	jm := NewMockJobManager()
 	job, _ := MakeCompletedJob(jm)
 
-	retrieved_job, err := jm.FindJob(job.UriSource, job.UriDestination)
+	retrieved_job, err := jm.store.FindJob(job.UriSource, job.UriDestination)
 
 	var got *jobNotFoundError
 	isJobNotFoundError := errors.As(err, &got)

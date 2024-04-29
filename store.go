@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
-	"log"
 	"time"
 )
 
@@ -123,13 +122,4 @@ func NewStore(db *sqlx.DB) *SQLiteStore {
 
 	return &SQLiteStore{db: db}
 
-}
-
-func NewMockStore() *SQLiteStore {
-	db, err := sqlx.Open("sqlite3", ":memory:")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	db.SetMaxOpenConns(1)
-	return NewStore(db)
 }

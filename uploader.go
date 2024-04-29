@@ -15,7 +15,7 @@ type uploadError struct {
 	uriDestination string
 }
 
-func (u ReadWriter) transfer(input string, output string) error {
+func (u ReadWriter) Transfer(input string, output string) error {
 	bytes, err_read := u.reader.read(input)
 	err_write := u.writer.write(bytes, output)
 

@@ -2,18 +2,17 @@ package main
 
 import (
 	"fmt"
+	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"strings"
 )
 
 type MockReader struct {
-	reader   Reader
 	dataPath string
 	nFiles   int
 }
 
 type MockWriter struct {
-	writer Writer
 }
 
 func (r *MockReader) read(uri string) ([]byte, error) {
@@ -68,8 +67,17 @@ func NewMockReadWriter(nFiles int) *ReadWriter {
 }
 
 func NewMockJobManager() *jobManager {
-	logger := MakeLogger(log.WarnLevel)
-	return &jobManager{readWriter: *NewMockReadWriter(4), Store: NewMockStore(),
+	logger := MakeLogger(log.InfoLevel)
+	return &jobManager{readWriter: *NewMockReadWriter(4), store: NewMockStore(),
 		logger:   logger,
 		nWorkers: 2}
+}
+
+func NewMockStore() *SQLiteStore {
+	db, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	db.SetMaxOpenConns(1)
+	return NewStore(db)
 }

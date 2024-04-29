@@ -3,14 +3,17 @@ package main
 import (
 	"context"
 	"errors"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
+	"fmt"
+	"os"
 	"strings"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 type jobManager struct {
-	Store
+	store      Store
 	readWriter ReadWriter
 	logger     *log.Logger
 	nWorkers   int
@@ -50,7 +53,7 @@ func (m *jobManager) Create(uriSource string, uriDestination string) (*Job, erro
 	eSource := m.readWriter.reader.checkScheme(uriSource)
 	eDestination := m.readWriter.writer.checkScheme(uriDestination)
 	eSourceExists := m.readWriter.reader.checkExists(uriSource)
-	duplicate_job, eJobNotFound := m.FindJob(uriSource, uriDestination)
+	duplicate_job, eJobNotFound := m.store.FindJob(uriSource, uriDestination)
 
 	joined_err := errors.Join(eDestination, eSourceExists, eSource)
 	if eJobNotFound == nil {
@@ -63,7 +66,7 @@ func (m *jobManager) Create(uriSource string, uriDestination string) (*Job, erro
 
 	job := &Job{UriSource: uriSource, UriDestination: uriDestination,
 		Status: created}
-	m.AppendJob(job)
+	m.store.AppendJob(job)
 
 	return job, nil
 }
@@ -88,8 +91,8 @@ func (m *jobManager) Parse(job *Job) (*Job, error) {
 	}
 	job.Transactions = transactions
 	job.Status = parsed
-	err_upd := m.UpdateJobStatus(job)
-	job, err_apd := m.AppendJobTransactions(job)
+	err_upd := m.store.UpdateJobStatus(job)
+	job, err_apd := m.store.AppendJobTransactions(job)
 
 	return job, errors.Join(err_upd, err_apd)
 
@@ -97,16 +100,21 @@ func (m *jobManager) Parse(job *Job) (*Job, error) {
 
 func (m *jobManager) updateTransactionWorker(results <-chan Transaction, wg *sync.WaitGroup) {
 	defer wg.Done()
+	processed := 1
 	for transaction := range results {
-		m.UpdateTransactionStatus(&transaction)
+		m.store.UpdateTransactionStatus(&transaction)
+		progress := (float64(processed) / float64(cap(results))) * 100
+
 		m.logger.WithFields(log.Fields{
-			"in":  transaction.UriSource,
-			"out": transaction.UriDestination}).Info("transferred")
+			"_progress": fmt.Sprintf("%.1f%%", progress),
+			"in":        transaction.UriSource,
+			"out":       transaction.UriDestination}).Info("transferred")
+		processed += 1
 	}
 }
 
-func (m *jobManager) transferWorker(ctx context.Context, worker_id int, transactions <-chan Transaction,
-	results chan<- Transaction) error {
+func (m *jobManager) transferWorker(ctx context.Context, worker_id int,
+	transactions <-chan Transaction, results chan<- Transaction) error {
 	for transaction := range transactions {
 		bytes, err_read := m.readWriter.reader.read(transaction.UriSource)
 		err_write := m.readWriter.writer.write(bytes, transaction.UriDestination)
@@ -123,6 +131,7 @@ func (m *jobManager) transferWorker(ctx context.Context, worker_id int, transact
 }
 
 func (m *jobManager) Transfer(job *Job) (*Job, error) {
+
 	var pending_transactions []Transaction
 	for _, t := range job.Transactions {
 		if t.Status == pending {
@@ -159,20 +168,22 @@ func (m *jobManager) Transfer(job *Job) (*Job, error) {
 	wg.Wait()
 
 	job.Status = done
-	err_upd := m.UpdateJobStatus(job)
-	done_job, err_find := m.FindJob(job.UriSource, job.UriDestination)
+	err_upd := m.store.UpdateJobStatus(job)
+	done_job, err_find := m.store.FindJob(job.UriSource, job.UriDestination)
 
 	return done_job, errors.Join(err, err_upd, err_find)
 
 }
 
 func NewJobManager(readWriter ReadWriter, store Store, nWorkers int) *jobManager {
-	return &jobManager{readWriter: readWriter, Store: store, nWorkers: nWorkers}
+	return &jobManager{readWriter: readWriter, store: store, nWorkers: nWorkers,
+		logger: MakeLogger(log.InfoLevel)}
 }
 
 func MakeLogger(level log.Level) *log.Logger {
 	logger := log.New()
-	logger.SetLevel(log.WarnLevel)
+	logger.SetLevel(level)
 	logger.SetFormatter(&log.JSONFormatter{})
+	logger.SetOutput(os.Stdout)
 	return logger
 }
