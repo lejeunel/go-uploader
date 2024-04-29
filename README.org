@@ -1,0 +1,7 @@
+#+title: Readme
+
+Run tests:
+
+#+begin_src sh
+go test . -v
+#+end_src
