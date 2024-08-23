@@ -25,7 +25,7 @@ func TestUploadReadError(t *testing.T) {
 	readWriter := ReadWriter{reader: &MockReaderErrorOnRead{MockReader{dataPath: "file:///path/to/data/",
 		nFiles: 10}},
 		writer: &MockWriter{}}
-	jm := &jobManager{readWriter: readWriter, store: NewMockStore(), nWorkers: 5}
+	jm := &jobManager{ReadWriter: readWriter, store: NewMockStore(), nWorkers: 5}
 	_, err := MakeCompletedJob(jm)
 
 	var got *readerError
@@ -40,7 +40,7 @@ func TestUploadWriteError(t *testing.T) {
 	readWriter := ReadWriter{reader: &MockReader{dataPath: "file:///path/to/data/",
 		nFiles: 10},
 		writer: &mockWriterErrorOnWrite{}}
-	jm := &jobManager{readWriter: readWriter, store: NewMockStore(), nWorkers: 5}
+	jm := &jobManager{ReadWriter: readWriter, store: NewMockStore(), nWorkers: 5}
 	_, err := MakeCompletedJob(jm)
 
 	var got *writerError

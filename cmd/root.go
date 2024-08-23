@@ -8,9 +8,13 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "Uploader",
+	Use:   "uploader",
 	Short: "Resilient and concurrent upload utility",
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			cmd.Help()
+			os.Exit(0)
+		}
 	},
 }
 

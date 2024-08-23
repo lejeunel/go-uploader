@@ -14,7 +14,7 @@ import (
 
 type jobManager struct {
 	store      Store
-	readWriter ReadWriter
+	ReadWriter ReadWriter
 	logger     *log.Logger
 	nWorkers   int
 }
@@ -50,9 +50,9 @@ func (m *jobManager) Resume(job *Job) (*Job, error) {
 }
 
 func (m *jobManager) Create(uriSource string, uriDestination string) (*Job, error) {
-	eSource := m.readWriter.reader.checkScheme(uriSource)
-	eDestination := m.readWriter.writer.checkScheme(uriDestination)
-	eSourceExists := m.readWriter.reader.checkExists(uriSource)
+	eSource := m.ReadWriter.reader.checkScheme(uriSource)
+	eDestination := m.ReadWriter.writer.checkScheme(uriDestination)
+	eSourceExists := m.ReadWriter.reader.checkExists(uriSource)
 	duplicate_job, eJobNotFound := m.store.FindJob(uriSource, uriDestination)
 
 	joined_err := errors.Join(eDestination, eSourceExists, eSource)
@@ -76,7 +76,7 @@ func (m *jobManager) Parse(job *Job) (*Job, error) {
 		return job, nil
 	}
 
-	inURIs, err := m.readWriter.reader.scan(job.UriSource)
+	inURIs, err := m.ReadWriter.reader.scan(job.UriSource)
 	if err != nil {
 		return job, err
 	}
@@ -116,8 +116,8 @@ func (m *jobManager) updateTransactionWorker(results <-chan Transaction, wg *syn
 func (m *jobManager) transferWorker(ctx context.Context, worker_id int,
 	transactions <-chan Transaction, results chan<- Transaction) error {
 	for transaction := range transactions {
-		bytes, err_read := m.readWriter.reader.read(transaction.UriSource)
-		err_write := m.readWriter.writer.write(bytes, transaction.UriDestination)
+		bytes, err_read := m.ReadWriter.reader.read(transaction.UriSource)
+		err_write := m.ReadWriter.writer.write(bytes, transaction.UriDestination)
 		joined_err := errors.Join(err_read, err_write)
 		if joined_err != nil {
 			return joined_err
@@ -176,7 +176,7 @@ func (m *jobManager) Transfer(job *Job) (*Job, error) {
 }
 
 func NewJobManager(readWriter ReadWriter, store Store, nWorkers int) *jobManager {
-	return &jobManager{readWriter: readWriter, store: store, nWorkers: nWorkers,
+	return &jobManager{ReadWriter: readWriter, store: store, nWorkers: nWorkers,
 		logger: MakeLogger(log.InfoLevel)}
 }
 

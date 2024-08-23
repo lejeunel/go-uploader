@@ -13,6 +13,7 @@ type MockReader struct {
 }
 
 type MockWriter struct {
+	num_written int
 }
 
 func (r *MockReader) read(uri string) ([]byte, error) {
@@ -57,6 +58,7 @@ func (r *MockReader) scan(uri string) ([]string, error) {
 }
 
 func (w *MockWriter) write(bytes []byte, uri string) error {
+	w.num_written++
 	return nil
 }
 
@@ -68,7 +70,7 @@ func NewMockReadWriter(nFiles int) *ReadWriter {
 
 func NewMockJobManager() *jobManager {
 	logger := MakeLogger(log.InfoLevel)
-	return &jobManager{readWriter: *NewMockReadWriter(4), store: NewMockStore(),
+	return &jobManager{ReadWriter: *NewMockReadWriter(4), store: NewMockStore(),
 		logger:   logger,
 		nWorkers: 2}
 }

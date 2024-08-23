@@ -16,8 +16,9 @@ type uploadError struct {
 }
 
 func (u ReadWriter) Transfer(input string, output string) error {
+
 	bytes, err_read := u.reader.read(input)
 	err_write := u.writer.write(bytes, output)
-
 	return errors.Join(err_read, err_write)
+
 }

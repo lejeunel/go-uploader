@@ -19,6 +19,7 @@ func TestUpload(t *testing.T) {
 	if job.Status != done {
 		t.Fatalf("expected job status %v, got %T", done, job.Status)
 	}
+	// done_transactions := job.numDoneTransactions()
 	done_transactions := job.numDoneTransactions()
 	n_transactions := job.numTransactions()
 	if done_transactions != len(job.Transactions) {
